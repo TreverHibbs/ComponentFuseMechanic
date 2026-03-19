@@ -8,8 +8,8 @@ public class FuseTarget : TargetRules
 	public FuseTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Game;
-		DefaultBuildSettings = BuildSettingsVersion.V2;
-		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_1;
+		DefaultBuildSettings = BuildSettingsVersion.V6;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 		ExtraModuleNames.Add("Fuse");
 	}
 }

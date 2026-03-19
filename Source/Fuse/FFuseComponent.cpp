@@ -1,5 +1,6 @@
 
 #include "FFuseComponent.h"
+#include "Engine/OverlapResult.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
 
 
