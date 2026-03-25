@@ -3,21 +3,35 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "EnhancedInputSubsystemInterface.h"
+#include "MoverSimulationTypes.h"
 #include "GameFramework/Pawn.h"
 #include "MoverPawn.generated.h"
 
-UCLASS()
-class FUSE_API AMoverPawn : public APawn
+class UCharacterMoverComponent;
+
+UCLASS(Blueprintable)
+class FUSE_API AMoverPawn : public APawn, public IMoverInputProducerInterface
 {
 	GENERATED_BODY()
 
 public:
 	// Sets default values for this pawn's properties
 	AMoverPawn();
+	
+	UPROPERTY(EditAnywhere, Category="Input")
+	TSoftObjectPtr<UInputMappingContext> InputMappingContext;
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	
+	UPROPERTY(Category = Movement, VisibleAnywhere, BlueprintReadOnly)
+	TObjectPtr<UCharacterMoverComponent> CharacterMotionComponent;
+	
+	// Entry point for input production. Do not override.
+	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
+	
 
 public:	
 	// Called every frame
@@ -25,5 +39,4 @@ public:
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
 };
