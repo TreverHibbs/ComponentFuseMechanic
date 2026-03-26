@@ -9,6 +9,8 @@
 #include "MoverPawn.generated.h"
 
 class UCharacterMoverComponent;
+class UInputAction;
+class UInputMappingContext;
 
 UCLASS(Blueprintable)
 class FUSE_API AMoverPawn : public APawn, public IMoverInputProducerInterface
@@ -21,6 +23,12 @@ public:
 	
 	UPROPERTY(EditAnywhere, Category="Input")
 	TSoftObjectPtr<UInputMappingContext> InputMappingContext;
+
+	UPROPERTY(EditAnywhere, Category="Input")
+	TObjectPtr<UInputAction> MoveAction;
+	
+	UPROPERTY(EditAnywhere, Category="Input")
+	TObjectPtr<UInputAction> LookAction;
 
 protected:
 	// Called when the game starts or when spawned
@@ -37,6 +45,15 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	void OnMoveTriggered(const FInputActionValue& InputActionValue);
+	void OnLookTriggered(const FInputActionValue& InputActionValue);
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	
+private: 
+	FVector CachedMoveInputIntent = FVector::ZeroVector;
+	FVector CachedMoveInputVelocity = FVector::ZeroVector;
+
+	FRotator CachedTurnInput = FRotator::ZeroRotator;
+	FRotator CachedLookInput = FRotator::ZeroRotator;
 };
