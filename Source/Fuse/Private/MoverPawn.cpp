@@ -2,26 +2,26 @@
 
 
 #include "MoverPawn.h"
+#include "MoverPawn.h"
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
-#include "EnhancedPlayerInput.h"
 #include "DefaultMovementSet/CharacterMoverComponent.h"
+#include "ChaosMover/Character/ChaosCharacterMoverComponent.h"
 
 // Sets default values
 AMoverPawn::AMoverPawn()
 {
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-	CharacterMotionComponent = CreateDefaultSubobject<UCharacterMoverComponent>(TEXT("CharacterMotionComponent"));
 }
 
 // Called when the game starts or when spawned
 void AMoverPawn::BeginPlay()
 {
 	Super::BeginPlay();
-	CharacterMotionComponent->InputProducer = this;
+	ChaosCharacterMotionComponent->InputProducer = this;
 
 	if (const APlayerController* PC = Cast<APlayerController>(GetController()))
 	{
@@ -61,10 +61,10 @@ void AMoverPawn::ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdCont
 		XYPlaneControlRotation.Roll = 0;
 		//TODO get this to reorientate the move input to the direction of the character
 		const FQuat ControlRotationQuat = XYPlaneControlRotation.Quaternion();
-		const FVector RotatedMoveInputXAxis = ControlRotationQuat.RotateVector(CachedMoveInputIntent.XAxisVector);
-		const FVector RotatedMoveInputYAxis = ControlRotationQuat.RotateVector(CachedMoveInputIntent.YAxisVector);
+		const FVector RotatedMoveInputXAxis = ControlRotationQuat.RotateVector(FVector(CachedMoveInputIntent.X, 0, 0));
+		const FVector RotatedMoveInputYAxis = ControlRotationQuat.RotateVector(FVector(0, CachedMoveInputIntent.Y, 0));
 		const FVector RotatedMoveInput = RotatedMoveInputXAxis + RotatedMoveInputYAxis;
-		CharacterInputs.SetMoveInput(CharacterInputs.GetMoveInputType(), RotatedMoveInput);
+		CharacterInputs.SetMoveInput(EMoveInputType::DirectionalIntent, RotatedMoveInput);
 		CachedMoveInputIntent = FVector::ZeroVector;
 	}
 	else
@@ -90,6 +90,13 @@ void AMoverPawn::Tick(float DeltaTime)
 
 		CachedLookInput = FRotator::ZeroRotator;
 	}
+}
+
+void AMoverPawn::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	
+	ChaosCharacterMotionComponent = FindComponentByClass<UChaosCharacterMoverComponent>();
 }
 
 void AMoverPawn::OnMoveTriggered(const FInputActionValue& Value)

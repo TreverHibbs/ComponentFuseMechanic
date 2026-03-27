@@ -9,6 +9,7 @@
 #include "MoverPawn.generated.h"
 
 class UCharacterMoverComponent;
+class UChaosCharacterMoverComponent;
 class UInputAction;
 class UInputMappingContext;
 
@@ -34,8 +35,8 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 	
-	UPROPERTY(Category = Movement, VisibleAnywhere, BlueprintReadOnly)
-	TObjectPtr<UCharacterMoverComponent> CharacterMotionComponent;
+	UPROPERTY(Category = Movement, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UChaosCharacterMoverComponent> ChaosCharacterMotionComponent;
 	
 	// Entry point for input production. Do not override.
 	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
@@ -44,6 +45,8 @@ protected:
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+	
+	virtual void PostInitializeComponents() override;
 
 	void OnMoveTriggered(const FInputActionValue& InputActionValue);
 	void OnLookTriggered(const FInputActionValue& InputActionValue);
