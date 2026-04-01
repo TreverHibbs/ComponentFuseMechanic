@@ -313,6 +313,7 @@ void UFFuseComponent::UpdateHeldFusable()
 
 	// Apply location and rotation to held fusable target
 	SetTargetLocationAndRotation(TargetLocation, TargetRotation);
+	//TODO understand what above function call does
 	
 	// Update location and rotation of orthographic projection actor
 	if (LastSpawnedOrthoProjectionActor)
