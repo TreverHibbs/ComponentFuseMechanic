@@ -38,7 +38,7 @@
 *.xcodeproj
 *.xcworkspace
 *.sln
-*.suo
+*.sue
 *.opensdf
 *.sdf
 *.VC.db
@@ -81,6 +81,7 @@ DerivedDataCache/*
 
 # Rider user specific files
 .idea/
+Fuse.sln.DotSettings.user
 
 # Platforms folder
 Platforms/
