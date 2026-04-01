@@ -35,6 +35,7 @@
 //TODO set up basic dynamic interaction activation system for modular vehicle
 
 using UnrealBuildTool;
+using UnrealBuildTool.Rules;
 
 public class Fuse : ModuleRules
 {
@@ -43,7 +44,9 @@ public class Fuse : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
 		PublicDependencyModuleNames.AddRange(new string[]
-			{ "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay", "EnhancedInput", "Mover", "ChaosMover"
-			});
+		{
+			"Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay", "EnhancedInput", "Mover",
+			"ChaosMover", "GameplayAbilities", "GameplayTags", "GameplayTAsks" 
+		});
 	}
 }

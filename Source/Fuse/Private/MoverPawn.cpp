@@ -2,7 +2,6 @@
 
 
 #include "MoverPawn.h"
-#include "MoverPawn.h"
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -15,6 +14,11 @@ AMoverPawn::AMoverPawn()
 {
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+}
+
+UAbilitySystemComponent* AMoverPawn::GetAbilitySystemComponent() const
+{
+	return AbilitySystemComponent;
 }
 
 // Called when the game starts or when spawned
