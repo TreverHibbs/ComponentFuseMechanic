@@ -1,5 +1,23 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
+
+using UnrealBuildTool;
+using UnrealBuildTool.Rules;
+
+public class Fuse : ModuleRules
+{
+	public Fuse(ReadOnlyTargetRules Target) : base(Target)
+	{
+		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+
+		PublicDependencyModuleNames.AddRange(new string[]
+		{
+			"Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay", "EnhancedInput", "Mover",
+			"ChaosMover", "GameplayAbilities", "GameplayTags", "GameplayTAsks" 
+		});
+	}
+}
+
 //Below are my current goals. The bigger picture is that I want a totk
 //system that used chaos mover character's and the modular vehicle system and
 //a fuse hand system that is fully networked.
@@ -34,19 +52,15 @@
 //TODO set up boilerplate code for GAS
 //TODO set up basic dynamic interaction activation system for modular vehicle
 
-using UnrealBuildTool;
-using UnrealBuildTool.Rules;
-
-public class Fuse : ModuleRules
-{
-	public Fuse(ReadOnlyTargetRules Target) : base(Target)
-	{
-		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-
-		PublicDependencyModuleNames.AddRange(new string[]
-		{
-			"Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay", "EnhancedInput", "Mover",
-			"ChaosMover", "GameplayAbilities", "GameplayTags", "GameplayTAsks" 
-		});
-	}
-}
+//NOTES
+//
+// So after reading the docs on gameplay ablities and the replectation of those abilities
+// I think this is what I need to do. I need to create an ability for the activation
+// of a fuse grab. This ability should be initiated by the server after the client requrests
+// said initiation with a button press. The ability should then be replicated during its
+// execution with the easiest option which is just the intantiate per execution option.
+// ok I should now create a hello world of this.
+// TODO I will create a C++ ability that just prints out hello world.
+// Before doing the above though I need to grant the ability to the pawn
+// on the server.
+// TODO grant the fuse ability to my pawn on the server

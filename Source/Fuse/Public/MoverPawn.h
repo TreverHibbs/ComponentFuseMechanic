@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "AbilitySystemInterface.h"
 #include "EnhancedInputSubsystemInterface.h"
+#include "FuseGameplayAbility.h"
 #include "MoverSimulationTypes.h"
 #include "GameFramework/Pawn.h"
 #include "MoverPawn.generated.h"
@@ -32,8 +33,14 @@ public:
 	UPROPERTY(EditAnywhere, Category="Input")
 	TObjectPtr<UInputAction> LookAction;
 	
-	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Abilities")
-	UAbilitySystemComponent* AbilitySystemComponent;
+	UPROPERTY(EditAnywhere, Category="Input")
+	TObjectPtr<UInputAction> FuseAction;
+	
+	UPROPERTY(Category = Ability, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
+	
+	UPROPERTY(EditDefaultsOnly, Category="Ability")
+	TSubclassOf<UFuseGameplayAbility> FuseAbility;
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
@@ -46,6 +53,8 @@ protected:
 
 	// Entry point for input production. Do not override.
 	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
+	
+	virtual void PossessedBy(AController* NewController) override;
 
 public:
 	// Called every frame
@@ -55,6 +64,7 @@ public:
 
 	void OnMoveTriggered(const FInputActionValue& InputActionValue);
 	void OnLookTriggered(const FInputActionValue& InputActionValue);
+	void OnFuseTriggered(const FInputActionValue& InputActionValue);
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 

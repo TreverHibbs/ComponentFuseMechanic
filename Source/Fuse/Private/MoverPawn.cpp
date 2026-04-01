@@ -3,6 +3,7 @@
 
 #include "MoverPawn.h"
 
+#include "AbilitySystemComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
@@ -77,6 +78,22 @@ void AMoverPawn::ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdCont
 	}
 }
 
+void AMoverPawn::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	if (HasAuthority() && AbilitySystemComponent)
+	{
+		if (FuseAbility)
+		{
+			const FGameplayAbilitySpec AbilitySpec(FuseAbility, 1);
+			AbilitySystemComponent->GiveAbility(AbilitySpec);
+		}
+
+		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	}
+}
+
 // Called every frame
 void AMoverPawn::Tick(float DeltaTime)
 {
@@ -99,8 +116,9 @@ void AMoverPawn::Tick(float DeltaTime)
 void AMoverPawn::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	
+
 	ChaosCharacterMotionComponent = FindComponentByClass<UChaosCharacterMoverComponent>();
+	AbilitySystemComponent = FindComponentByClass<UAbilitySystemComponent>();
 }
 
 void AMoverPawn::OnMoveTriggered(const FInputActionValue& Value)
@@ -118,6 +136,17 @@ void AMoverPawn::OnLookTriggered(const FInputActionValue& InputActionValue)
 	CachedLookInput.Pitch = CachedTurnInput.Pitch = FMath::Clamp(LookVector.Y, -1.0f, 1.0f);
 }
 
+void AMoverPawn::OnFuseTriggered(const FInputActionValue& InputActionValue)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Fuse Action triggered"));
+	if (InputActionValue.Get<bool>())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("hello fuse action"));
+	}
+	
+	AbilitySystemComponent->TryActivateAbilityByClass(TSubclassOf<UFuseGameplayAbility>());
+}
+
 // Called to bind functionality to input
 void AMoverPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -129,6 +158,7 @@ void AMoverPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent
 		Input->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMoverPawn::OnMoveTriggered);
 		//Input->BindAction(MoveInputAction, ETriggerEvent::Completed, this, &AMoverExamplesCharacter::OnMoveCompleted);
 		Input->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMoverPawn::OnLookTriggered);
+		Input->BindAction(FuseAction, ETriggerEvent::Triggered, this, &AMoverPawn::OnFuseTriggered);
 		//Input->BindAction(LookInputAction, ETriggerEvent::Completed, this, &AMoverExamplesCharacter::OnLookCompleted);
 		//Input->BindAction(JumpInputAction, ETriggerEvent::Started, this, &AMoverExamplesCharacter::OnJumpStarted);
 		//Input->BindAction(JumpInputAction, ETriggerEvent::Completed, this, &AMoverExamplesCharacter::OnJumpReleased);

@@ -7,7 +7,7 @@
 #include "FuseAbility.generated.h"
 
 /**
- * 
+ * TODO move fus ability to here or delete this 
  */
 UCLASS()
 class FUSE_API UFuseAbility : public UAbilitySystemComponent
