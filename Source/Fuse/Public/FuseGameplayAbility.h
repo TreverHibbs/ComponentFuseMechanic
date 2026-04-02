@@ -13,6 +13,8 @@ UCLASS()
 class FUSE_API UFuseGameplayAbility : public UGameplayAbility
 {
 	GENERATED_BODY()
+	 
+	UFuseGameplayAbility();
 	
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	                             const FGameplayAbilityActivationInfo ActivationInfo,

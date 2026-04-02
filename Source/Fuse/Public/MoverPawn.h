@@ -14,6 +14,7 @@ class UCharacterMoverComponent;
 class UChaosCharacterMoverComponent;
 class UInputAction;
 class UInputMappingContext;
+struct FGameplayAbilitySpecHandle;
 
 UCLASS(Blueprintable)
 class FUSE_API AMoverPawn : public APawn, public IMoverInputProducerInterface, public IAbilitySystemInterface
@@ -41,6 +42,9 @@ public:
 	
 	UPROPERTY(EditDefaultsOnly, Category="Ability")
 	TSubclassOf<UFuseGameplayAbility> FuseAbility;
+	
+	UPROPERTY(Category = Ability, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))
+	FGameplayAbilitySpecHandle FuseAbilityHandle;
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 

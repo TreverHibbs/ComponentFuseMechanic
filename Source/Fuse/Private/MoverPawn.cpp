@@ -87,7 +87,7 @@ void AMoverPawn::PossessedBy(AController* NewController)
 		if (FuseAbility)
 		{
 			const FGameplayAbilitySpec AbilitySpec(FuseAbility, 1);
-			AbilitySystemComponent->GiveAbility(AbilitySpec);
+			FuseAbilityHandle = AbilitySystemComponent->GiveAbility(AbilitySpec);
 		}
 
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
@@ -138,13 +138,10 @@ void AMoverPawn::OnLookTriggered(const FInputActionValue& InputActionValue)
 
 void AMoverPawn::OnFuseTriggered(const FInputActionValue& InputActionValue)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Fuse Action triggered"));
-	if (InputActionValue.Get<bool>())
+	if (FuseAbilityHandle.IsValid())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("hello fuse action"));
+		AbilitySystemComponent->TryActivateAbility(FuseAbilityHandle);
 	}
-	
-	AbilitySystemComponent->TryActivateAbilityByClass(TSubclassOf<UFuseGameplayAbility>());
 }
 
 // Called to bind functionality to input
@@ -158,7 +155,7 @@ void AMoverPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent
 		Input->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMoverPawn::OnMoveTriggered);
 		//Input->BindAction(MoveInputAction, ETriggerEvent::Completed, this, &AMoverExamplesCharacter::OnMoveCompleted);
 		Input->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMoverPawn::OnLookTriggered);
-		Input->BindAction(FuseAction, ETriggerEvent::Triggered, this, &AMoverPawn::OnFuseTriggered);
+		Input->BindAction(FuseAction, ETriggerEvent::Completed, this, &AMoverPawn::OnFuseTriggered);
 		//Input->BindAction(LookInputAction, ETriggerEvent::Completed, this, &AMoverExamplesCharacter::OnLookCompleted);
 		//Input->BindAction(JumpInputAction, ETriggerEvent::Started, this, &AMoverExamplesCharacter::OnJumpStarted);
 		//Input->BindAction(JumpInputAction, ETriggerEvent::Completed, this, &AMoverExamplesCharacter::OnJumpReleased);
