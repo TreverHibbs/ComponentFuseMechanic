@@ -24,7 +24,7 @@ public class Fuse : ModuleRules
 //TODO look into animated the wheels so that only the wheel bone moves and not
 //the axel
 //TODO implement simple as possible dynamic modular vehicle building system
-//  TODO learn about and decide if GAS is what I should use for the ultra hand ability
+//
 //  So far with my gas exploration I think this is how the system would work for the ultra hand.
 //  The ultra hand will be an ability that can be activated by a keybind from the player characters.
 //  This ability will shoot a ray to detect an object that can be grabbed. I guess I would use (tags
@@ -47,10 +47,8 @@ public class Fuse : ModuleRules
 //  Actually the last stated method is probably not right.
 //  The actual solution might be utilizing chaos physics fields to move the object. However
 //  I am not sure if the chaos physics fields can be networked. I think this is what I should
-//  look into next. it is my next TODO. according the the UE AI fields can be replicated
+//  look into next. it is my next.  according the the UE AI fields can be replicated
 //  that is exciting and I think it is true.
-//TODO set up boilerplate code for GAS
-//TODO set up basic dynamic interaction activation system for modular vehicle
 
 //NOTES
 //
@@ -60,7 +58,18 @@ public class Fuse : ModuleRules
 // said initiation with a button press. The ability should then be replicated during its
 // execution with the easiest option which is just the intantiate per execution option.
 // ok I should now create a hello world of this.
-// TODO I will create a C++ ability that just prints out hello world.
 // Before doing the above though I need to grant the ability to the pawn
 // on the server.
-// TODO grant the fuse ability to my pawn on the server
+//
+// notes 4/2/2026
+// I have set up a hello world for the fuse ability and now I am thinking about implementing
+// the corresponding grab effect of the ability. This means that I will need to 
+// trace from the camera and see if it hits an object that can be grabbed. If it does
+// I then need to create some physics interaction that implements a ultra hand type grab.
+// I am thinking I am going to use a physics constraint for this.
+// I think I will use the gameplay ability system for this. The fuse ability will
+// create a grabbed effect on the grabbed object and a grabbing effect on the player's
+// pawn. I think the grabbed effect will create the physics constraint and when the grabbed
+// effect is gone that contraint will disapear. I think this is what I will try to implement
+// at first.
+// TODO implement the stuff I describe above
