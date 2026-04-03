@@ -65,3 +65,18 @@ void UFuseGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	}
 	UE_LOG(LogTemp, Warning, TEXT("Hello Ability"));
 }
+
+//NOTES 4/3/26
+//
+// This morning I learned that two potential options for controlling the position of
+// a grabbed object are the UPhysicsHandleComponent, a linear motore, or an angular motor
+// The original fuse character uses the handle component in tandem witha contraint actor
+// However, I think a motor might be a better solution for what I want to achieve.
+// However, I don't yet have a mental model for how the motor will interact with
+// networked physics, on the other hand, I do feel like I have a mental model for how
+// the handle component would interact with networked physics I think my next task
+// should be to -TODO- test my understanding of how the motors will work by trying to
+// implement an effect that dynamically attaches my pawn to the grabbed object with a motor
+// I can then try to get this working on the network
+// TODO before doing the above just attach two boxes together with a motor and see what
+// happens
