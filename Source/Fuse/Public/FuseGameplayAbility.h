@@ -6,6 +6,8 @@
 #include "Abilities/GameplayAbility.h"
 #include "FuseGameplayAbility.generated.h"
 
+class APhysicsConstraintActor;
+
 /**
  * 
  */
@@ -19,5 +21,8 @@ class FUSE_API UFuseGameplayAbility : public UGameplayAbility
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	                             const FGameplayAbilityActivationInfo ActivationInfo,
 	                             const FGameplayEventData* TriggerEventData) override;
+	
+	UPROPERTY(EditAnywhere, Category="Physics")
+	TSubclassOf<APhysicsConstraintActor> PhysicsConstraintActor;
 	
 };

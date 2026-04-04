@@ -8,7 +8,9 @@
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
 #include "DrawDebugHelpers.h"
+#include "PhysicsEngine/PhysicsConstraintActor.h"
 #include "RootMotionModifier_PrecomputedWarp.h"
+#include "PhysicsEngine/PhysicsConstraintComponent.h"
 
 UFuseGameplayAbility::UFuseGameplayAbility()
 {
@@ -58,12 +60,23 @@ void UFuseGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 			// No hit
 			UE_LOG(LogTemp, Warning, TEXT("No Actor hit by trace."));
 		}
+
+		auto HitActor = HitResult.GetActor();
+		FActorSpawnParameters ConstraintSpawnParams;
+		auto PhysicsConstraintActorInstance = World->SpawnActor<APhysicsConstraintActor>(
+			PhysicsConstraintActor, Actor->GetActorLocation(),
+			FRotator::ZeroRotator,
+			ConstraintSpawnParams);
+		auto ConstraintComp = PhysicsConstraintActorInstance->GetConstraintComp();
+		ConstraintComp->SetConstrainedComponents(Cast<UPrimitiveComponent, USceneComponent>(Actor->GetRootComponent()),
+		                                         FName(""), Cast<UPrimitiveComponent, USceneComponent>(
+			                                         HitActor->GetRootComponent()),
+		                                         FName(""));
 	}
 	else
 	{
 		UE_LOG(LogTemp, Error, TEXT("Actor of fuse ability is null, can't do it"));
 	}
-	UE_LOG(LogTemp, Warning, TEXT("Hello Ability"));
 }
 
 //NOTES 4/3/26
@@ -75,8 +88,43 @@ void UFuseGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 // However, I don't yet have a mental model for how the motor will interact with
 // networked physics, on the other hand, I do feel like I have a mental model for how
 // the handle component would interact with networked physics I think my next task
-// should be to -TODO- test my understanding of how the motors will work by trying to
+// should be to -TODOdid- test my understanding of how the motors will work by trying to
 // implement an effect that dynamically attaches my pawn to the grabbed object with a motor
 // I can then try to get this working on the network
-// TODO before doing the above just attach two boxes together with a motor and see what
-// happens
+//
+// I attached to network predicted physics object with a constraint actor and it went
+// about as well as I would hope they staid more or less in sync on the server and
+// the client. Now I think I will add a constraint component dynamically on the server
+// and replicate that constraint to the clients I will do this in my ability.
+
+// I spent some time today thinking about why I need to network my inputs when moving
+// an object that is grabbed. I went back and rewatched some of the networked physics
+// presentation, and I have remembered that it is so that all the timelines, the autonomous
+// proxy the server and the sim proxy align so that the different players can interact with
+// the physics that is ultimately determined by what is happening on the server smoothly.
+// It's to ensure that in most cases what you see is what you get. So I should network the
+// inputs.
+//
+// TODO I think my next task is to get some controls working for moving the grabbed object
+// around with the mouse input. So up and down mainly.
+// If I understand what is going on correctly, (which I don't think is likely), then
+// what I need to do is I need to sync the updates to the constraint actor between
+// the client and the server and the simulated proxies. I think I should do this using
+// the gameplay system. On the client I will use an ability and then an effect will
+// handle the logic of adding a constraint. Since an effect is replicated this effect
+// will run on the server and sim proxies. Then everyone will have the new constraint.
+// I will then use the same technique to update the constraint with user input to rotate
+// the grabbed object and move it up and down. I will try this and see how it works.
+//
+// TODO implement effect for grabbing. Abilities are not replicated to sim proxies
+// I think it will work because resimulation conciders contraints so as long as the
+// constraint is kept in sync on the server and client I think things should look good.
+// Now this could go bad if the constraints are slow to sync via the gameplay system.
+// For example a constrain could be upated quickely on the server resulting in movement
+// of the object. Movement that isn't done on the clients till later. Same problem if it
+// is first done on the clients. I guess I'll just try it and see how it feels. I am not
+// fully understanding how the resimulation thing works.
+//
+//
+// this https://youtu.be/_jRLlTDqoGI?si=rsoUFMb1R5I5gxZd&t=2182 might help get it working
+// well in a networked scenario.

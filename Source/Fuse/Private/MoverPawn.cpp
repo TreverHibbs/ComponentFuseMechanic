@@ -138,10 +138,9 @@ void AMoverPawn::OnLookTriggered(const FInputActionValue& InputActionValue)
 
 void AMoverPawn::OnFuseTriggered(const FInputActionValue& InputActionValue)
 {
-	if (FuseAbilityHandle.IsValid())
-	{
-		AbilitySystemComponent->TryActivateAbility(FuseAbilityHandle);
-	}
+	FGameplayTagContainer TargetTag;
+	TargetTag.AddTag(FGameplayTag::RequestGameplayTag(FName("Ability.Fuse")));
+	AbilitySystemComponent->TryActivateAbilitiesByTag(TargetTag);
 }
 
 // Called to bind functionality to input
