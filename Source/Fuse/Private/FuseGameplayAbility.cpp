@@ -8,6 +8,8 @@
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
 #include "DrawDebugHelpers.h"
+#include "RepPhysicsConstraintActor.h"
+#include "RepPhysicsConstraintComponent.h"
 #include "PhysicsEngine/PhysicsConstraintActor.h"
 #include "RootMotionModifier_PrecomputedWarp.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
@@ -65,18 +67,15 @@ void UFuseGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		{
 			auto HitActor = HitResult.GetActor();
 			FActorSpawnParameters ConstraintSpawnParams;
-			auto PhysicsConstraintActorInstance = World->SpawnActor<APhysicsConstraintActor>(
+			auto PhysicsConstraintActorInstance = World->SpawnActor<ARepPhysicsConstraintActor>(
 				PhysicsConstraintActor, Actor->GetActorLocation(),
 				FRotator::ZeroRotator,
 				ConstraintSpawnParams);
-			auto ConstraintComp = PhysicsConstraintActorInstance->GetConstraintComp();
-			ConstraintComp->SetConstrainedComponents(
-				Cast<UPrimitiveComponent, USceneComponent>(Actor->GetRootComponent()),
-				FName(""), Cast<UPrimitiveComponent, USceneComponent>(
-					HitActor->GetRootComponent()),
+			PhysicsConstraintActorInstance->SetConstraints(
+				Actor,
+				FName(""),
+				HitActor,
 				FName(""));
-			PhysicsConstraintActorInstance->SetReplicates(true);
-			ConstraintComp->SetIsReplicated(true);
 		}
 	}
 	else
