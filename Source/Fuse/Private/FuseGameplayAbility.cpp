@@ -61,17 +61,23 @@ void UFuseGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 			UE_LOG(LogTemp, Warning, TEXT("No Actor hit by trace."));
 		}
 
-		auto HitActor = HitResult.GetActor();
-		FActorSpawnParameters ConstraintSpawnParams;
-		auto PhysicsConstraintActorInstance = World->SpawnActor<APhysicsConstraintActor>(
-			PhysicsConstraintActor, Actor->GetActorLocation(),
-			FRotator::ZeroRotator,
-			ConstraintSpawnParams);
-		auto ConstraintComp = PhysicsConstraintActorInstance->GetConstraintComp();
-		ConstraintComp->SetConstrainedComponents(Cast<UPrimitiveComponent, USceneComponent>(Actor->GetRootComponent()),
-		                                         FName(""), Cast<UPrimitiveComponent, USceneComponent>(
-			                                         HitActor->GetRootComponent()),
-		                                         FName(""));
+		if (HasAuthority(&ActivationInfo))
+		{
+			auto HitActor = HitResult.GetActor();
+			FActorSpawnParameters ConstraintSpawnParams;
+			auto PhysicsConstraintActorInstance = World->SpawnActor<APhysicsConstraintActor>(
+				PhysicsConstraintActor, Actor->GetActorLocation(),
+				FRotator::ZeroRotator,
+				ConstraintSpawnParams);
+			auto ConstraintComp = PhysicsConstraintActorInstance->GetConstraintComp();
+			ConstraintComp->SetConstrainedComponents(
+				Cast<UPrimitiveComponent, USceneComponent>(Actor->GetRootComponent()),
+				FName(""), Cast<UPrimitiveComponent, USceneComponent>(
+					HitActor->GetRootComponent()),
+				FName(""));
+			PhysicsConstraintActorInstance->SetReplicates(true);
+			ConstraintComp->SetIsReplicated(true);
+		}
 	}
 	else
 	{
