@@ -26,6 +26,15 @@ void ARepPhysicsConstraintActor::OnRep_ConstraintPropertyUpdated()
 	}
 }
 
+void ARepPhysicsConstraintActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+	if (EndPlayReason == EEndPlayReason::Destroyed)
+	{
+		ConstraintComponent->BreakConstraint();
+	}
+}
+
 void ARepPhysicsConstraintActor::SetConstraints(TObjectPtr<AActor> ConstrainedActor1Input,
                                                 FName ConstrainedActor1NameInput,
                                                 TObjectPtr<AActor> ConstrainedActor2Input,

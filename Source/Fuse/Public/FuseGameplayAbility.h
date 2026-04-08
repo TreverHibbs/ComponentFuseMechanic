@@ -6,6 +6,7 @@
 #include "Abilities/GameplayAbility.h"
 #include "FuseGameplayAbility.generated.h"
 
+class UGrabbingGameplayEffect;
 class ARepPhysicsConstraintActor;
 
 /**
@@ -24,4 +25,10 @@ class FUSE_API UFuseGameplayAbility : public UGameplayAbility
 	
 	UPROPERTY(EditAnywhere, Category="Physics")
 	TSubclassOf<ARepPhysicsConstraintActor> PhysicsConstraintActor;
+	
+	UPROPERTY(EditAnywhere, Category="Effects")
+	TSubclassOf<UGrabbingGameplayEffect> GrabbingEffect;
+	
+	UPROPERTY(EditAnywhere, Category="Effects")
+	TSubclassOf<UGameplayEffect> LetGoEffect;
 };

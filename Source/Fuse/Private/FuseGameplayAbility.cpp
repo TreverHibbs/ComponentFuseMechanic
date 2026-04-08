@@ -3,16 +3,14 @@
 
 #include "FuseGameplayAbility.h"
 
-#include "CollisionDebugDrawingPublic.h"
-#include "Camera/CameraComponent.h"
+#include "AbilitySystemComponent.h"
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
 #include "DrawDebugHelpers.h"
+#include "GrabbingGameplayEffect.h"
+#include "MoverPawn.h"
 #include "RepPhysicsConstraintActor.h"
 #include "RepPhysicsConstraintComponent.h"
-#include "PhysicsEngine/PhysicsConstraintActor.h"
-#include "RootMotionModifier_PrecomputedWarp.h"
-#include "PhysicsEngine/PhysicsConstraintComponent.h"
 
 UFuseGameplayAbility::UFuseGameplayAbility()
 {
@@ -27,10 +25,28 @@ void UFuseGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 	UWorld* World = GetWorld();
-	auto Actor = ActorInfo->AvatarActor.Get();
+	auto Actor = Cast<AMoverPawn, AActor>(ActorInfo->AvatarActor.Get());
 	if (Actor && World)
 	{
-		// Example: Start from actor's location, shoot forward 1000 units
+		auto GrabbingTag = FGameplayTag::RequestGameplayTag(TEXT("State.Grabbing"));
+		bool HasGrabbingTag = Actor->AbilitySystemComponent.Get()->HasMatchingGameplayTag(GrabbingTag);
+		if (auto PhysicsConstraintActorInstance = Actor->PhysicsConstraintActorInstance.Get();
+			PhysicsConstraintActorInstance || HasGrabbingTag)
+		{
+			if (PhysicsConstraintActorInstance)
+			{
+				//Only the server should have a valid physics constraint instance,
+				//therefore, this code should only run on the server.
+				PhysicsConstraintActorInstance->ConstraintComponent->BreakConstraint();
+				PhysicsConstraintActorInstance->Destroy();
+				Actor->PhysicsConstraintActorInstance = nullptr;
+				auto SpecHandle = MakeOutgoingGameplayEffectSpec(LetGoEffect);
+				auto ActiveEffectHandle = ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, SpecHandle);
+			}
+			EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+			return;
+		}
+
 		FVector TraceStart = Actor->GetActorLocation();
 		FVector TraceEnd = TraceStart + Actor->GetActorForwardVector() * 1000.0f;
 
@@ -63,15 +79,23 @@ void UFuseGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 			UE_LOG(LogTemp, Warning, TEXT("No Actor hit by trace."));
 		}
 
-		if (HasAuthority(&ActivationInfo))
+		FActiveGameplayEffectHandle GrabbingActiveEffectHandle;
+		if (HasAuthority(&ActivationInfo) && HitResult.IsValidBlockingHit())
+		{
+			auto SpecHandle = MakeOutgoingGameplayEffectSpec(GrabbingEffect);
+			GrabbingActiveEffectHandle = ApplyGameplayEffectSpecToOwner(
+				Handle, ActorInfo, ActivationInfo, SpecHandle);
+		}
+
+		if (HasAuthority(&ActivationInfo) && GrabbingActiveEffectHandle.WasSuccessfullyApplied())
 		{
 			auto HitActor = HitResult.GetActor();
 			FActorSpawnParameters ConstraintSpawnParams;
-			auto PhysicsConstraintActorInstance = World->SpawnActor<ARepPhysicsConstraintActor>(
+			Actor->PhysicsConstraintActorInstance = World->SpawnActor<ARepPhysicsConstraintActor>(
 				PhysicsConstraintActor, Actor->GetActorLocation(),
 				FRotator::ZeroRotator,
 				ConstraintSpawnParams);
-			PhysicsConstraintActorInstance->SetConstraints(
+			Actor->PhysicsConstraintActorInstance->SetConstraints(
 				Actor,
 				FName(""),
 				HitActor,
@@ -82,6 +106,7 @@ void UFuseGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	{
 		UE_LOG(LogTemp, Error, TEXT("Actor of fuse ability is null, can't do it"));
 	}
+	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 }
 
 //NOTES 4/3/26
@@ -121,7 +146,7 @@ void UFuseGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 // I will then use the same technique to update the constraint with user input to rotate
 // the grabbed object and move it up and down. I will try this and see how it works.
 //
-// TODO implement effect for grabbing. Abilities are not replicated to sim proxies
+// TODOdid implement effect for grabbing. Abilities are not replicated to sim proxies
 // I think it will work because resimulation conciders contraints so as long as the
 // constraint is kept in sync on the server and client I think things should look good.
 // Now this could go bad if the constraints are slow to sync via the gameplay system.
@@ -133,3 +158,51 @@ void UFuseGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 //
 // this https://youtu.be/_jRLlTDqoGI?si=rsoUFMb1R5I5gxZd&t=2182 might help get it working
 // well in a networked scenario.
+//
+// 4/5/26
+// Today I am excited about my progress from yesterday. I got the creation of
+// a replicated constraint working. I am now thinking that I will work on
+// setting up a system for removing the constraint. I should also clean
+// up the logic and handle the case where no valid object is found.
+//
+// My current working mental model is that I should apply a grabbed
+// effect from this ability and in that grabbed effect I should
+// set up a tag for indicating object is grabbed and pawn is
+// grabbing, check for if I can apply effect based on tags and
+// validity of target, if checks pass and tags are set create
+// networked constraint. Maybe in slightly different order but this
+// is what I should do.
+// I am doing this to implement a state machine for the grabbing pawn
+// A state machine that allows it to know when it is grabbing so it
+// can then have the ability to let go
+// That would be the next thing I do. Once I have a grabbing state
+//
+// 4/6/26
+// I am worried about resimulation and the creation of a constraint actor.
+// based on my current understanding the problem is this.
+// Using networked physics resimulation system can you spawn 
+// in a constraint actor in respons to user input and have that 
+// actor's creationg be in sync with the server? 
+// How would you handle resimulation in this example?
+// I am worried that when the rewind step of resimulation happens 
+// the system will not remove the old constraint actor from 
+// before the rewind. Therefore when the logic that creates the 
+// actor is run again you will end up with two constraint actors. 
+// How can you prevent that?
+// TODO find and test solutions for the above issue
+//
+// I will also have to be careful about how I handle creating the forward-
+// predicted constraint on the client. I will have to make sure that when
+// the server creates it's replicated counter-part that the one created on
+// the client is hooked up to listen for replication of that constraint from
+// the server
+//
+//Look into this response from the Unreal AI
+//In Unreal Engine 5’s Networked Physics (Async Physics), you must respect 
+//the thread boundary: Actors and Components exist on the Game Thread (GT), 
+//while the Simulation Particles and Joints exist on the Physics Thread (PT).
+//While you cannot directly touch the APhysicsConstraintActor or 
+//UPhysicsConstraintComponent from the PT, you can—and should—modify 
+//the Chaos Joint Handle that represents that constraint on the PT. 
+//This is the only way to ensure the “break” or property change is 
+//deterministic and synced during resimulation.

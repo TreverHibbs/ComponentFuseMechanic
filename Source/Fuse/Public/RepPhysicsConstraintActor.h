@@ -17,9 +17,6 @@ class FUSE_API ARepPhysicsConstraintActor : public ARigidBodyBase
 
 	ARepPhysicsConstraintActor();
 
-	UPROPERTY(Category = Physics, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<URepPhysicsConstraintComponent> ConstraintComponent;
-
 	UPROPERTY(ReplicatedUsing=OnRep_ConstraintPropertyUpdated, Category = Constraint, VisibleAnywhere)
 	TObjectPtr<AActor> ConstrainedActor1;
 
@@ -35,10 +32,15 @@ class FUSE_API ARepPhysicsConstraintActor : public ARigidBodyBase
 	UFUNCTION()
 	void OnRep_ConstraintPropertyUpdated();
 
+	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 public:
 	void SetConstraints(TObjectPtr<AActor> ConstrainedActor1Input, FName ConstrainedActor1NameInput,
 	                    TObjectPtr<AActor> ConstrainedActor2Input,
 	                    FName ConstrainedActor2NameInput);
+	
+	UPROPERTY(Category = Physics, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<URepPhysicsConstraintComponent> ConstraintComponent;
 
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 };

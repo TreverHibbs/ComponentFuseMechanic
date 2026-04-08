@@ -45,6 +45,9 @@ public:
 	
 	UPROPERTY(Category = Ability, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))
 	FGameplayAbilitySpecHandle FuseAbilityHandle;
+	
+	UPROPERTY(Category = Physics, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<ARepPhysicsConstraintActor> PhysicsConstraintActorInstance;
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
