@@ -9,6 +9,20 @@
 #include "InputMappingContext.h"
 #include "DefaultMovementSet/CharacterMoverComponent.h"
 #include "ChaosMover/Character/ChaosCharacterMoverComponent.h"
+#include "Physics/Experimental/PhysScene_Chaos.h"
+#include "PBDRigidsSolver.h"
+#include "Chaos/PhysicsObjectInternalInterface.h"
+#include "Chaos/PBDJointConstraints.h"
+
+void FPhysicsPawnAsync::SetShouldCreateConstraint_Internal(bool bInShouldCreateConstraint)
+{
+	bShouldCreateConstraint_Internal = bInShouldCreateConstraint;
+}
+
+void FPhysicsPawnAsync::SetTargetPhysicsObject_Internal(Chaos::FConstPhysicsObjectHandle InTargetPhysicsObject)
+{
+	TargetPhysicsObject_Internal = InTargetPhysicsObject;
+}
 
 // Sets default values
 AMoverPawn::AMoverPawn()
@@ -119,6 +133,78 @@ void AMoverPawn::PostInitializeComponents()
 
 	ChaosCharacterMotionComponent = FindComponentByClass<UChaosCharacterMoverComponent>();
 	AbilitySystemComponent = FindComponentByClass<UAbilitySystemComponent>();
+
+	if (UPrimitiveComponent* RootSimulatedComponent = Cast<UPrimitiveComponent>(GetRootComponent()))
+	{
+		if (UWorld* World = GetWorld())
+		{
+			if (FPhysScene* PhysScene = World->GetPhysicsScene())
+			{
+				if (Chaos::FPhysicsSolver* Solver = PhysScene->GetSolver())
+				{
+					// Create async callback object to run on Physics Thread
+					PhysicsPawnAsync = Solver->CreateAndRegisterSimCallbackObject_External<FPhysicsPawnAsync>();
+					if (ensure(PhysicsPawnAsync))
+					{
+						PhysicsPawnAsync->PawnPhysicsObject = RootSimulatedComponent->GetPhysicsObjectByName(NAME_None);
+					}
+				}
+			}
+		}
+	}
+}
+
+//NOTES 4/8/26
+//I think that I should actually just create a joint on the physics thread.
+//I don't think I need to pass the constraint component like I am trying
+//Next thing to do is to try this. TODO create a join only on physics thread
+//using the networked physics component for replication.
+
+//Don't let the pawn go to sleep on the physics thread because this could cause
+//problems
+//notes 4/8/26
+//I'm not sure if I need this
+void FPhysicsPawnAsync::OnPostInitialize_Internal()
+{
+	if (PawnPhysicsObject)
+	{
+		Chaos::FWritePhysicsObjectInterface_Internal Interface = Chaos::FPhysicsObjectInternalInterface::GetWrite();
+		if (Chaos::FPBDRigidParticleHandle* ParticleHandle = Interface.GetRigidParticle(PawnPhysicsObject))
+		{
+			ParticleHandle->SetSleepType(Chaos::ESleepType::NeverSleep);
+		}
+	}
+}
+
+void FPhysicsPawnAsync::OnPreSimulate_Internal()
+{
+	Chaos::FWritePhysicsObjectInterface_Internal Interface = Chaos::FPhysicsObjectInternalInterface::GetWrite();
+	Chaos::FPBDRigidsSolver* RigidsSolver = static_cast<Chaos::FPBDRigidsSolver*>(GetSolver());
+	auto JointConstraints = RigidsSolver->GetJointCombinedConstraints();
+	if (const FAsyncInputPhysicsPawn* AsyncInput = GetConsumerInput_Internal())
+	{
+		SetShouldCreateConstraint_Internal(AsyncInput->bShouldCreateConstraint);
+		SetTargetPhysicsObject_Internal(AsyncInput->TargetPhysicsObject);
+	}
+	Chaos::FPBDRigidParticleHandle* PawnParticleHandle = Interface.GetRigidParticle(PawnPhysicsObject);
+	Chaos::FPBDRigidParticleHandle* TargetParticleHandle = Interface.GetRigidParticle(TargetPhysicsObject_Internal);
+	//TODO I need to figure out the API for getting these particle handles into
+	//the constraint creation interface.
+	//I think I need to make the serializable somehow.
+	//Create joint constraint
+
+	Chaos::FPBDJointSettings Settings;
+	//Settings.LinearMotionType = Chaos::EJointMotionType::Locked;
+
+	auto ConstParticlePair = Chaos::TVec2<const Chaos::FGeometryParticleHandle*>(PawnParticleHandle, TargetParticleHandle);
+	Chaos::TVec2<Chaos::FGeometryParticleHandle*> ParticlePair;
+	//Because of the API protection for the async input I must cast to mutable
+	//data.
+	ParticlePair[0] = const_cast<Chaos::FGeometryParticleHandle*>(ConstParticlePair[0]);
+	ParticlePair[1] = const_cast<Chaos::FGeometryParticleHandle*>(ConstParticlePair[1]);
+	auto Joint = JointConstraints.LinearConstraints.AddConstraint(ParticlePair, Chaos::FRigidTransform3::Identity);
+
+	Joint->SetSettings(Settings);
 }
 
 void AMoverPawn::OnMoveTriggered(const FInputActionValue& Value)
@@ -159,5 +245,13 @@ void AMoverPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent
 		//Input->BindAction(JumpInputAction, ETriggerEvent::Started, this, &AMoverExamplesCharacter::OnJumpStarted);
 		//Input->BindAction(JumpInputAction, ETriggerEvent::Completed, this, &AMoverExamplesCharacter::OnJumpReleased);
 		//Input->BindAction(FlyInputAction, ETriggerEvent::Triggered, this, &AMoverExamplesCharacter::OnFlyTriggered);
+	}
+}
+
+void FPhysicsPawnAsync::OnPhysicsObjectUnregistered_Internal(Chaos::FConstPhysicsObjectHandle InPhysicsObject)
+{
+	if (PawnPhysicsObject == InPhysicsObject)
+	{
+		PawnPhysicsObject = nullptr;
 	}
 }

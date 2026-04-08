@@ -90,17 +90,20 @@ void UFuseGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		if (HasAuthority(&ActivationInfo) && GrabbingActiveEffectHandle.WasSuccessfullyApplied())
 		{
 			auto HitActor = HitResult.GetActor();
-			FActorSpawnParameters ConstraintSpawnParams;
-			Actor->PhysicsConstraintActorInstance = World->SpawnActor<ARepPhysicsConstraintActor>(
-				PhysicsConstraintActor, Actor->GetActorLocation(),
-				FRotator::ZeroRotator,
-				ConstraintSpawnParams);
-			Actor->PhysicsConstraintActorInstance->SetConstraints(
-				Actor,
-				FName(""),
-				HitActor,
-				FName(""));
+			//TODO instead of spawning actor here I want to schedule the
+			//setting of the constrained actor properties of my existing
+			//constraint component on the physics thread.
+			if (Actor->PhysicsPawnAsync)
+			{
+				if (FAsyncInputPhysicsPawn* AsyncInput = Actor->PhysicsPawnAsync->GetProducerInputData_External())
+				{
+					AsyncInput->bShouldCreateConstraint = true;
+					AsyncInput->TargetPhysicsObject = Cast<UPrimitiveComponent>(HitActor->GetRootComponent())->
+						GetPhysicsObjectByName(NAME_None);
+				}
+			}
 		}
+		//const int32 CorrespondingFrame = ServerFrame - FrameOffset;
 	}
 	else
 	{
@@ -206,3 +209,11 @@ void UFuseGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 //the Chaos Joint Handle that represents that constraint on the PT. 
 //This is the only way to ensure the “break” or property change is 
 //deterministic and synced during resimulation.
+//
+// 4/8/26
+// My goal for today is to refactor the pawn to have a constraint
+// component that exists on the creation of the pawn that is used
+// for grabbing stuff rather than spawning a constraint actor every time
+// I will then network using the UChaosPhysicsBackend and the corresponding
+// physics thread handle of the constraint component to allow the player
+// to "grab" stuff with the constraint.

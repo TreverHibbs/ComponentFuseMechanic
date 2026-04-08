@@ -10,11 +10,58 @@
 #include "GameFramework/Pawn.h"
 #include "MoverPawn.generated.h"
 
+class AMoverPawn;
 class UCharacterMoverComponent;
 class UChaosCharacterMoverComponent;
 class UInputAction;
 class UInputMappingContext;
 struct FGameplayAbilitySpecHandle;
+
+// GameThread to PhysicsThread input data struct
+struct FAsyncInputPhysicsPawn : public Chaos::FSimCallbackInput
+{
+	bool bShouldCreateConstraint;
+	Chaos::FConstPhysicsObjectHandle TargetPhysicsObject;
+
+	void Reset()
+	{
+		bShouldCreateConstraint = false;
+		TargetPhysicsObject = nullptr;
+	}
+};
+
+// PhysicsThread to GameThread output data struct
+struct FAsyncOutputPhysicsPawn : public Chaos::FSimCallbackOutput
+{
+	void Reset()
+	{
+	}
+};
+
+class FPhysicsPawnAsync : public Chaos::TSimCallbackObject<FAsyncInputPhysicsPawn, FAsyncOutputPhysicsPawn,
+                                                           (Chaos::ESimCallbackOptions::Presimulate |
+	                                                           Chaos::ESimCallbackOptions::PhysicsObjectUnregister)>
+{
+	friend AMoverPawn;
+
+	~FPhysicsPawnAsync()
+	{
+	}
+
+	// TSimCallbackObject callbacks
+	virtual void OnPostInitialize_Internal() override;
+	virtual void OnPreSimulate_Internal() override;
+	virtual void OnPhysicsObjectUnregistered_Internal(Chaos::FConstPhysicsObjectHandle InPhysicsObject) override;
+
+private:
+	bool bShouldCreateConstraint_Internal;
+	Chaos::FConstPhysicsObjectHandle TargetPhysicsObject_Internal = nullptr;
+	Chaos::FConstPhysicsObjectHandle PawnPhysicsObject = nullptr;
+
+public:
+	void SetShouldCreateConstraint_Internal(bool bInShouldCreateConstraint);
+	void SetTargetPhysicsObject_Internal(Chaos::FConstPhysicsObjectHandle InTargetPhysicsObject);
+};
 
 UCLASS(Blueprintable)
 class FUSE_API AMoverPawn : public APawn, public IMoverInputProducerInterface, public IAbilitySystemInterface
@@ -33,21 +80,22 @@ public:
 
 	UPROPERTY(EditAnywhere, Category="Input")
 	TObjectPtr<UInputAction> LookAction;
-	
+
 	UPROPERTY(EditAnywhere, Category="Input")
 	TObjectPtr<UInputAction> FuseAction;
-	
+
 	UPROPERTY(Category = Ability, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
-	
+
 	UPROPERTY(EditDefaultsOnly, Category="Ability")
 	TSubclassOf<UFuseGameplayAbility> FuseAbility;
-	
+
 	UPROPERTY(Category = Ability, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))
 	FGameplayAbilitySpecHandle FuseAbilityHandle;
-	
+
 	UPROPERTY(Category = Physics, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<ARepPhysicsConstraintActor> PhysicsConstraintActorInstance;
+	FPhysicsPawnAsync* PhysicsPawnAsync;
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
@@ -60,7 +108,7 @@ protected:
 
 	// Entry point for input production. Do not override.
 	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
-	
+
 	virtual void PossessedBy(AController* NewController) override;
 
 public:
