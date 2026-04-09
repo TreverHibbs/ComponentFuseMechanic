@@ -13,6 +13,35 @@
 #include "PBDRigidsSolver.h"
 #include "Chaos/PhysicsObjectInternalInterface.h"
 #include "Chaos/PBDJointConstraints.h"
+#include "Runtime/Experimental/Chaos/Private/Chaos/PhysicsObjectInternal.h"
+
+enum class TransformType : uint8;
+
+// Workaround for missing CHAOS_API on base class methods in UE 5.7 experimental Chaos API
+namespace Chaos
+{
+	void FPBDConstraintContainer::OnDisableParticle(FGeometryParticleHandle* DisabledParticle)
+	{
+		for (FConstraintHandle* ConstraintHandle : DisabledParticle->ParticleConstraints())
+		{
+			if ((ConstraintHandle->GetContainerId() == ContainerId) && ConstraintHandle->IsEnabled())
+			{
+				ConstraintHandle->SetEnabled(false);
+			}
+		}
+	}
+
+	void FPBDConstraintContainer::OnEnableParticle(FGeometryParticleHandle* EnabledParticle)
+	{
+		for (FConstraintHandle* ConstraintHandle : EnabledParticle->ParticleConstraints())
+		{
+			if ((ConstraintHandle->GetContainerId() == ContainerId) && !ConstraintHandle->IsEnabled())
+			{
+				ConstraintHandle->SetEnabled(true);
+			}
+		}
+	}
+}
 
 void FPhysicsPawnAsync::SetShouldCreateConstraint_Internal(bool bInShouldCreateConstraint)
 {
@@ -176,36 +205,73 @@ void FPhysicsPawnAsync::OnPostInitialize_Internal()
 	}
 }
 
+template <typename TransformType>
+static void FixConnectorTransformsForRoot(
+	const Chaos::FParticlePair& OriginalHandles, const Chaos::FParticlePair& RootHandles, TransformType& InOutTransformsToFix)
+{
+	for (int32 Index = 0; Index < 2; Index++)
+	{
+		if (OriginalHandles[Index] && RootHandles[Index] && RootHandles[Index] != OriginalHandles[Index])
+		{
+			const FTransform TransformOffset = OriginalHandles[Index]->GetTransformXR().GetRelativeTransform(
+				RootHandles[Index]->GetTransformXR());
+			InOutTransformsToFix[Index] *= TransformOffset;
+		}
+	}
+}
+
+//TODO get this working in single player mode
+//Learn more about how things really works so you can effectively debug it
+//Right now constraint doesn't seem to actually get created.
+//good place to start would probably be in the constrains settings.
 void FPhysicsPawnAsync::OnPreSimulate_Internal()
 {
-	Chaos::FWritePhysicsObjectInterface_Internal Interface = Chaos::FPhysicsObjectInternalInterface::GetWrite();
-	Chaos::FPBDRigidsSolver* RigidsSolver = static_cast<Chaos::FPBDRigidsSolver*>(GetSolver());
-	auto JointConstraints = RigidsSolver->GetJointCombinedConstraints();
 	if (const FAsyncInputPhysicsPawn* AsyncInput = GetConsumerInput_Internal())
 	{
 		SetShouldCreateConstraint_Internal(AsyncInput->bShouldCreateConstraint);
 		SetTargetPhysicsObject_Internal(AsyncInput->TargetPhysicsObject);
 	}
+	if (!bShouldCreateConstraint_Internal)
+	{
+		return;
+	}
+
+	// Reset trigger so it only happens once
+	bShouldCreateConstraint_Internal = false;
+
+	Chaos::FReadPhysicsObjectInterface_Internal Interface = Chaos::FPhysicsObjectInternalInterface::GetWrite();
+	Chaos::FPBDRigidsSolver* RigidsSolver = static_cast<Chaos::FPBDRigidsSolver*>(GetSolver());
+	auto JointConstraints = RigidsSolver->GetJointCombinedConstraints();
 	Chaos::FPBDRigidParticleHandle* PawnParticleHandle = Interface.GetRigidParticle(PawnPhysicsObject);
 	Chaos::FPBDRigidParticleHandle* TargetParticleHandle = Interface.GetRigidParticle(TargetPhysicsObject_Internal);
 	//TODO I need to figure out the API for getting these particle handles into
 	//the constraint creation interface.
 	//I think I need to make the serializable somehow.
 	//Create joint constraint
-
 	Chaos::FPBDJointSettings Settings;
+	Settings.bCollisionEnabled = false;
 	//Settings.LinearMotionType = Chaos::EJointMotionType::Locked;
 
-	auto ConstParticlePair = Chaos::TVec2<const Chaos::FGeometryParticleHandle*>(PawnParticleHandle, TargetParticleHandle);
+	Chaos::FParticlePair RootHandles
+    {
+		PawnPhysicsObject->GetRootParticle<Chaos::EThreadContext::Internal>(),
+		TargetPhysicsObject_Internal->GetRootParticle<Chaos::EThreadContext::Internal>(),
+	};
+	auto ConstParticlePair = Chaos::TVec2<const Chaos::FGeometryParticleHandle*>(
+		PawnParticleHandle, TargetParticleHandle);
 	Chaos::TVec2<Chaos::FGeometryParticleHandle*> ParticlePair;
-	//Because of the API protection for the async input I must cast to mutable
+	//Because of the API protection for the async input, I must cast to mutable
 	//data.
 	ParticlePair[0] = const_cast<Chaos::FGeometryParticleHandle*>(ConstParticlePair[0]);
 	ParticlePair[1] = const_cast<Chaos::FGeometryParticleHandle*>(ConstParticlePair[1]);
-	auto Joint = JointConstraints.LinearConstraints.AddConstraint(ParticlePair, Chaos::FRigidTransform3::Identity);
 
-	Joint->SetSettings(Settings);
+	FixConnectorTransformsForRoot(ParticlePair, RootHandles, Settings.ConnectorTransforms);
+
+	auto JointHandle = RigidsSolver->GetEvolution()->CreateJointConstraint(ParticlePair, Settings);
+	//TODO: this seems to work :0 next thing to do is to get the two connected
+	//object to stay where they are when the constraint is created
 }
+
 
 void AMoverPawn::OnMoveTriggered(const FInputActionValue& Value)
 {
@@ -255,3 +321,47 @@ void FPhysicsPawnAsync::OnPhysicsObjectUnregistered_Internal(Chaos::FConstPhysic
 		PawnPhysicsObject = nullptr;
 	}
 }
+
+//Notes 4/9/26
+// I am trying to understand how to create a constraint on the physics thread
+// in order to do that I feel like I need to understand chaos physics better.
+// I think I should use the brisker method therefore my TODO is to come up with
+// a bunch of questions that can help me gain an understanding of the chaos
+// physics system.
+//
+// Q. What API does unreal have for integrating physics engines?
+// Q. Where is the main tick function for chaos physics? does it have it's
+// own main loop?
+// Q. What data comprises a joint constraint?
+// Q. What systems use join constraints at runtime?
+// Q. where are joint constraints stored at runtime?
+// Q. What are the types of join constraints available?
+// Q. What mechanism is used to create a constraint in the physics
+// scene when a constraint actor is created on the game thread?
+// Q. What data comprises a physics scene? Is that even a real thing?
+// Q. What data comprises a solver?
+// Q. What data comprises a particle?
+// Q. What mechanism allows constraints to affect the physics simulation?
+// Q. What mechanism allows the physics solver to move objects in the game world?
+// Q. There is something called the chaos physics framework. What API does the
+// chaos physics framework have
+
+// After reading through blog post on how the chaos physics engine worked in
+// 5.1 My new belief for how I should attach the player to the grabbed object
+// with a constraint is this. TODO create a constraint component and at runtime
+// include the constraint components physics thread handle in the data sent as input
+// I am not sure about how to connect the constrain component to it's physics thread
+// hand so TODO figure out how you get the physics thread handle of a constraint if
+// you have it's game thread component counterpart.
+// I think this is the path to take because the creation and registering of a physics
+// representation of an object is complicated. I think it is best to let the engine
+// handle that for me and to just use the data it generates.
+//
+// It looks like when a constraint component exists in the editor it is instantiated
+// at runtime by pushing it's data to the physics thread. The FPBDevolution thing
+// the object that is responsible for all the real physics work is the place where
+// the constrain eventually get's created for real. This is not what I was doing.
+// This makes me think that I should create the constraint in the editor and try to
+// manipulate it in my code rather than try to make it from scratch.
+// my next TODO is to create that constraint and see whether or not it is created
+// for real on the physics thread.

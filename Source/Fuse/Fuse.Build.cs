@@ -2,7 +2,6 @@
 
 
 using UnrealBuildTool;
-using UnrealBuildTool.Rules;
 
 public class Fuse : ModuleRules
 {
@@ -13,9 +12,10 @@ public class Fuse : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
 			"Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay", "EnhancedInput", "Mover",
-			"ChaosMover", "GameplayAbilities", "GameplayTags", "GameplayTAsks", "Chaos"
+			"ChaosMover", "GameplayAbilities", "GameplayTags", "GameplayTasks", "Chaos", "ChaosSolverEngine",
+			"ChaosCore", "PhysicsCore"
 		});
-		
+
 		SetupIrisSupport(Target);
 	}
 }

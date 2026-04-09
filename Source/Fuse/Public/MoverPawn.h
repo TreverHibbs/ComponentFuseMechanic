@@ -7,6 +7,7 @@
 #include "EnhancedInputSubsystemInterface.h"
 #include "FuseGameplayAbility.h"
 #include "MoverSimulationTypes.h"
+#include "Chaos/ConstraintHandle.h"
 #include "GameFramework/Pawn.h"
 #include "MoverPawn.generated.h"
 
@@ -20,8 +21,8 @@ struct FGameplayAbilitySpecHandle;
 // GameThread to PhysicsThread input data struct
 struct FAsyncInputPhysicsPawn : public Chaos::FSimCallbackInput
 {
-	bool bShouldCreateConstraint;
-	Chaos::FConstPhysicsObjectHandle TargetPhysicsObject;
+	bool bShouldCreateConstraint = false;
+	Chaos::FConstPhysicsObjectHandle TargetPhysicsObject = nullptr;
 
 	void Reset()
 	{
@@ -95,7 +96,7 @@ public:
 
 	UPROPERTY(Category = Physics, VisibleAnywhere, BlueprintReadOnly, Transient, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<ARepPhysicsConstraintActor> PhysicsConstraintActorInstance;
-	FPhysicsPawnAsync* PhysicsPawnAsync;
+	FPhysicsPawnAsync* PhysicsPawnAsync = nullptr;
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
