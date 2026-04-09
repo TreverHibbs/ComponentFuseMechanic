@@ -207,7 +207,8 @@ void FPhysicsPawnAsync::OnPostInitialize_Internal()
 
 template <typename TransformType>
 static void FixConnectorTransformsForRoot(
-	const Chaos::FParticlePair& OriginalHandles, const Chaos::FParticlePair& RootHandles, TransformType& InOutTransformsToFix)
+	const Chaos::FParticlePair& OriginalHandles, const Chaos::FParticlePair& RootHandles,
+	TransformType& InOutTransformsToFix)
 {
 	for (int32 Index = 0; Index < 2; Index++)
 	{
@@ -249,11 +250,10 @@ void FPhysicsPawnAsync::OnPreSimulate_Internal()
 	//I think I need to make the serializable somehow.
 	//Create joint constraint
 	Chaos::FPBDJointSettings Settings;
-	Settings.bCollisionEnabled = false;
 	//Settings.LinearMotionType = Chaos::EJointMotionType::Locked;
 
 	Chaos::FParticlePair RootHandles
-    {
+	{
 		PawnPhysicsObject->GetRootParticle<Chaos::EThreadContext::Internal>(),
 		TargetPhysicsObject_Internal->GetRootParticle<Chaos::EThreadContext::Internal>(),
 	};
@@ -265,11 +265,33 @@ void FPhysicsPawnAsync::OnPreSimulate_Internal()
 	ParticlePair[0] = const_cast<Chaos::FGeometryParticleHandle*>(ConstParticlePair[0]);
 	ParticlePair[1] = const_cast<Chaos::FGeometryParticleHandle*>(ConstParticlePair[1]);
 
+	Chaos::FRigidTransform3 WorldTransform0 = ParticlePair[0]->GetTransformXR();
+	Chaos::FRigidTransform3 WorldTransform1 = ParticlePair[1]->GetTransformXR();
+
+	Chaos::FRigidTransform3 JointWorldTransform = WorldTransform1;
+
+	Settings.ConnectorTransforms[0] = JointWorldTransform.GetRelativeTransform(WorldTransform0);
+	Settings.ConnectorTransforms[1] = JointWorldTransform.GetRelativeTransform(WorldTransform1);
+
+	Settings.LinearMotionTypes[0] = Chaos::EJointMotionType::Locked;
+	Settings.LinearMotionTypes[1] = Chaos::EJointMotionType::Locked;
+	Settings.LinearMotionTypes[2] = Chaos::EJointMotionType::Locked;
+
+	Settings.bLinearPositionDriveEnabled = {true, true, true};
+
+	Settings.LinearDriveStiffness = {1000, 1000, 1000};
+	Settings.LinearDriveDamping = {100, 100, 100};
+	
+	Settings.LinearDrivePositionTarget = FVector::ZeroVector;
+	
+	Settings.bCollisionEnabled = true;
+
 	FixConnectorTransformsForRoot(ParticlePair, RootHandles, Settings.ConnectorTransforms);
 
 	auto JointHandle = RigidsSolver->GetEvolution()->CreateJointConstraint(ParticlePair, Settings);
-	//TODO: this seems to work :0 next thing to do is to get the two connected
-	//object to stay where they are when the constraint is created
+	//TODO next thing is to understand how to configure constrain better
+	//  TODO decide on what kind of mechanic I want for the prototype repo or totk
+	//TODO get constraint working in multiplayer
 }
 
 
@@ -365,3 +387,49 @@ void FPhysicsPawnAsync::OnPhysicsObjectUnregistered_Internal(Chaos::FConstPhysic
 // manipulate it in my code rather than try to make it from scratch.
 // my next TODO is to create that constraint and see whether or not it is created
 // for real on the physics thread.
+
+//AI GAVE ME THIS ON HOW TO ENABLE JOINT DEBUG DRAW STUFF
+//To visualize Chaos Physics constraints during Play In Editor (PIE), you can use runtime console commands, the viewport “Show” flags, or the Chaos Visual Debugger for deeper inspection.
+//1. Primary Console Commands (Runtime)
+//The most direct way to see constraints while playing is to enable the Chaos Debug Draw system. Open the console (~) and enter:
+//
+//Enable Debug Drawing:
+//p.Chaos.DebugDraw.Enabled 1
+//Visualize Joint Constraints:
+//p.Chaos.Solver.DebugDrawJoints 1
+//2. Customizing the Visualization
+//Once joints are visible, they may appear as a simple line or a cluttered mess of axes. Use these commands to refine the view:
+//
+//Show Joint Axes: p.Chaos.Solver.DebugDraw.JointFeatures.Axes 1
+//(Displays the local coordinate frames of the joint anchors.)
+//Show Actor Connectors: p.Chaos.Solver.DebugDraw.JointFeatures.ActorConnector 1
+//(Draws lines from the joint to the center of the connected physics bodies.)
+//Show Stretch/Strain: p.Chaos.Solver.DebugDraw.JointFeatures.Stretch 1
+//(Changes color or adds indicators when a joint is under high load.)
+//Adjust Scale: p.Chaos.Solver.DebugDraw.ConstraintAxisLen 40
+//(Increases or decreases the size of the debug axes.)
+//3. Editor Viewport Flags
+//If you are in the editor and have ejected (F8) or are looking at the scene, you can toggle physics visualization through the UI:
+//
+//In the Viewport, click the Show menu (top left).
+//Navigate to Physics.
+//Check Constraints.
+//Note: This usually shows the authored UPhysicsConstraintComponent helpers. For the actual simulated Chaos joints, the console commands in Step 1 are more reliable.
+//4. The Chaos Visual Debugger (CVD)
+//For professional debugging—especially to see why a constraint was eliminated or broken—use the Chaos Visual Debugger.
+//
+//Go to Tools > Control Chaos Visual Debugger.
+//Click Record and play your game.
+//Stop recording and scrub to the frame of interest.
+//In the CVD Show menu, go to Joint Constraints > Enable Draw.
+//Selection: You can click on a joint in the viewport. The Details Panel will show the specific impulses, current “Broken” state, and the internal settings (Stiffness, Damping) used during that specific physics tick.
+//5. Networked Physics Considerations
+//If you are testing Networked Physics Resimulation, you can visualize the difference between the Client and Server’s version of a constraint:
+//
+//Show Server Joints: p.Chaos.Solver.DebugDraw.ShowServer 1
+//Show Client Joints: p.Chaos.Solver.DebugDraw.ShowClient 1
+//This is vital for identifying “ghost” constraints that exist on one machine but have been eliminated on the other, causing jitter or rubber-banding.
+//
+//Performance & Best Practices
+//Reduce Noise: If the screen is filled with lines, use p.Chaos.DebugDraw.SingleActor 1 to only draw the constraints for the actor you are currently looking at with the camera.
+//Avoid Tick: Do not leave these debug commands active during performance profiling, as the debug drawing itself can significantly impact the frame rate.
